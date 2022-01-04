@@ -24,13 +24,47 @@ module.exports = async function() {
     }
   });
 
-  const Foo = sequelize.define('Foo', { name: DataTypes.TEXT });
+  const User = sequelize.define('User', { name: DataTypes.TEXT });
+  const UserFollower = sequelize.define('UserFollower', { });
+  User.belongsToMany(User, {
+    foreignKey: 'userId',
+    as: 'followers',
+    through: UserFollower
+  })
+  User.belongsToMany(User, {
+    foreignKey: 'followerId',
+    as: 'following',
+    through: UserFollower
+  })
 
-  const spy = sinon.spy();
-  sequelize.afterBulkSync(() => spy());
   await sequelize.sync();
-  expect(spy).to.have.been.called;
 
-  log(await Foo.create({ name: 'foo' }));
-  expect(await Foo.count()).to.equal(1);
+  const popular = await User.create({ name: 'Popular' })
+  const follower = await User.create({ name: 'Follower' })
+  const mutual = await User.create({ name: 'Mutual' })
+
+  await UserFollower.create({
+    userId: popular.id,
+    followerId: follower.id
+  })
+  await UserFollower.create({
+    userId: popular.id,
+    followerId: mutual.id
+  })
+  await UserFollower.create({
+    userId: mutual.id,
+    followerId: popular.id
+  })
+
+  console.log(await popular.getFollowers({ joinTableAttributes: [] }))
+
+  // And via find methods...
+  const popularFromFind = await User.findByPk(popular.id, {
+    include: [{
+      model: User,
+      as: 'followers',
+      through: { attributes: [] }
+    }]
+  })
+  console.log(popularFromFind.followers)
 };
